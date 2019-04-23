@@ -1,0 +1,7 @@
+---
+
+- name: Install security updates (CentOS)
+  tags: security-updates
+  yum:
+    security: yes
+    state: latest

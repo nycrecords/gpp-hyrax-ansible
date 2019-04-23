@@ -1,0 +1,42 @@
+---
+#
+# Roles to run early, since they might cause reboots, or their handlers need
+# to run before the normal roles can execute
+#
+- name: pre-roles
+  hosts: all:!unmanaged
+  tags: [initial, common]
+
+  # Occasionally useful, but super noisy
+  #pre_tasks:[{ debug: 'var=hostvars[inventory_hostname]', tags: debug }]
+  roles:
+    - set-distribution-name-version
+    - rhel-subscription-manager
+    - security-updates
+    - hostname
+    - rsyslog
+    - users
+    - development-tools
+    - proxy-config
+
+#
+# Detect is a reboot is required
+#
+- name: reboot-required
+  # reboot one host at a time, for rolling updates
+  serial: 1
+  hosts: all:!unmanaged
+  tags: [initial, common]
+  roles:
+    - reboot-required
+
+#
+# Roles to run on every instance
+#
+- name: common
+  hosts: all:!unmanaged
+  tags: common
+  roles:
+    # run cleanup as early as possible, since current roles may conflict
+    # with old stuff
+    - hosts

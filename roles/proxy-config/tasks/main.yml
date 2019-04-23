@@ -1,0 +1,80 @@
+---
+
+- name: Configure proxy settings
+  set_fact:
+    environment_entries: []
+    profile_entries: []
+
+#
+# /etc/environment
+#
+- name: Create the environment block
+  set_fact:
+    environment_entries: "{{ environment_entries }} + ['{{ item }}=http://{{ proxy.hostname }}:{{ proxy.port }}/']"
+  with_items:
+    - http_proxy
+    - https_proxy
+    - ftp_proxy
+    - HTTP_PROXY
+    - HTTPS_PROXY
+    - FTP_PROXY
+
+- name: Append to the environment block
+  set_fact:
+    environment_entries: "{{ environment_entries }} + ['{{ item }}=\"localhost,127.0.0.1,localhostnameess,.localdomain.com\"']"
+  with_items:
+    - no_proxy
+    - NO_PROXY
+
+- name: Update /etc/environment
+  blockinfile:
+    dest: /etc/environment
+    block: "{{ environment_entries | join('\n') }}"
+    insertafter: EOF
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - PROXY"
+  become: true
+
+#
+# /etc/profile.d/proxy.sh
+#
+
+- name: Ensure /etc/profile.d/proxy.sh exists
+  file:
+    path: /etc/profile.d/proxy.sh
+    owner: root
+    group: root
+    mode: 0644
+    state: touch
+  become: true
+
+- name: Create the profile block
+  set_fact:
+    profile_entries: "{{ profile_entries }} + ['export {{ item.opt }}={{ item.prot }}://{{ proxy.hostname }}:{{ proxy.port }}/']"
+  with_items:
+    - {opt: http_proxy, prot: http}
+    - {opt: https_proxy, prot: http}
+    - {opt: ftp_proxy, prot: http}
+    - {opt: socks_proxy,prot: socks}
+    - {opt: npm_config_proxy, prot: http}
+    - {opt: npm_config_https_proxy, prot: http}
+
+- name: Update /etc/profile.d/proxy.sh
+  blockinfile:
+    dest: /etc/profile.d/proxy.sh
+    block: "{{ profile_entries | join('\n') }}"
+    insertafter: EOF
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - PROXY"
+  become: true
+
+#
+# git
+#
+
+- name: Add proxy to git
+  shell: git config --global {{ item.opt }} {{ item.prot }}://{{ proxy.hostname }}:{{ proxy.port }}
+  with_items:
+    - { opt: http.proxy, prot: http }
+    - { opt: https.proxy, prot: https }
+
+- name: Set git to https
+  shell: git config --global url."https://github.com/".insteadOf git://github.com/
